@@ -1,0 +1,152 @@
+实用的一些操作： ctrl +alt  虚拟机返回到计算机
+centos实用操作：ctrl + l 清屏    上下键可查看之前操作的命令
+
+配置虚拟机网络：
+ip add  查看虚拟机ip     发现除了回环地址以外，我们并不能和外界通信
+ping  www.baidu.com   发现并不能ping通 
+
+修改网卡的配置文件
+vi /etc/sysconfig/network-scripts/ifcfg-ens33 （输入命令时，可以按Tab键补全）
+输入“i”进入编辑模式，将其修改成yes，按Esc键退出编辑，然后输入:wq保存退出。
+ONBOOT = yes
+重启网络服务
+service network restart
+再次查看ip地址 
+ip add
+发现 eth33已经分配了ip地址
+查看网络 
+ping www.baidu.com 发现可以ping通（ctrl + c  退出）
+
+
+
+centos系统的配置
+用户配置（集群搭建的过程中，我们一般不直接使用超级用户root，
+而是需要我们新建一个用户名称）
+输入 useradd 查看帮助
+-m命令，来创建用户的home目录
+useradd -m tuser
+进入home目录 发现多了一个 tuser目录
+这个就是普通用户tuser的home目录了，可以用su命令切换用户
+su tuser
+可以用pwd 查看当前目录
+
+删除用户 userdel命令  输入userdel可以查看删除的相关帮助信息
+userdel -rf tuser 强制删除用户和对应的home目录
+
+修改主机名（hostname）
+vi /etc/sysconfig/network
+修改后重启才会生效
+reboot
+
+配置静态ip（无论是哪种网络模式，它的IP地址经常会变动，对我们后面搭建hadoop集群会造成影响）
+vi /etc/sysconfig/network-scripts/ifcfg-ens33 命令来查看ens33的相关配置信息
+修改配置
+BOOTPROTO=static //由dhcp修改为static
+IPADDR=192.168.72.128	//可以自己设置，但必须与GATEWAY网段一致20
+NETMASK=255.255.255.0	//默认设置
+GATEWAY=192.168.72.1   （点击自己电脑找到网络连接，查看状态找到网关，注意和上面IPADDR对应关系）
+
+关闭防火墙
+chkconfig iptables off （永久关闭）
+service iptables stop    （临时关闭）
+service iptables status  （查看状态）
+然后 永久关闭需要重启
+
+相关服务的安装
+root用户下，在命令行中输入yum install lrzsz   
+途中需要确认  输入y即可  -y对于下载中需要确定的命令做一个肯定回复
+出现complete即证明下载成功。
+测试rz 上传、sz 下载文件
+安装openssh-server服务  （为了之后的ssh免密码登陆做准备）
+yum install -y openssh-clients
+输入ssh命令，则提示了ssh命令的使用方法。
+
+
+
+vmware网络设置桥接、nat、单主机模式区别
+在桥接模式下，VMWare虚拟出来的操作系统就像是局域网中的一台独立的主机（主机和虚拟机处于对等地位，直接与外网通信）
+在NAT模式下，虚拟系统需要借助NAT(网络地址转换)功能，通过宿主机器所在的网络来访问公网。也就是说，使用NAT模式虚拟系统可把物理主机作为路由器访问互联网。（虚拟机在主机的下一级）   nat模式默认对应的接口为 vmnet8
+仅主机模式下，真实环境和虚拟环境是隔离开的；在这种模式下，所有的虚拟系统是可以相互通信的，但虚拟系统和真实的网络是被隔离开。 但是主机是可以上网的。（虚拟机和虚拟机之间可以通信，虚拟机和主机可以通信，虚拟机和外面不能通信）  仅主机模式默认对应的接口为 vmnet1
+
+
+nginx+django服务器部署
+安装，配置nginx
+安装epel源的软件
+# yum  install  epel-release   然后一路y
+nginx的安装
+# yum  install nginx  -y
+启动nginx服务
+# service  nginx  restart
+若不能通过ip地址直接访问 则关闭selinux安全机制和防火墙 重启nginx 再试
+[root@localhost nginx]# getenforce 
+[root@localhost nginx]# setenforce  0
+[root@localhost nginx]# vi  /etc/selinux/config
+SELINUX=disabled
+关闭防火墙
+#systemctl stop firewalld 临时关闭
+#systemctl disable firewalld ，然后reboot 永久关闭
+#systemctl status  firewalld 查看防火墙状态。
+通过以上操作，已经可以实现ip地址访问nginx首页
+安装python
+安装Python3.6
+yum install python36 -y
+安装好之后可以使用python3 pip3命令使用python pip功能
+安装django（使用国内镜像源下载速度快很多）
+pip3 install django==1.11  -i  https://pypi.tuna.tsinghua.edu.cn/simple
+安装gunicorn（用其启动django）
+pip3 install gunicorn  -i  https://pypi.tuna.tsinghua.edu.cn/simple
+将django项目导入服务器
+安装环境依赖
+pip3 install requirements.txt（将requirements.txt导入服务器，一般和django项目一起导入）
+导入环境依赖命令：pip3 freeze > requirements.txt
+修改nginx配置
+location / {
+                proxy_pass http://127.0.0.1:8000 ;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;       
+        }
+location /static/ {
+        	 root /django/lin ; #注意是自己的目录
+        }
+location /media/ {
+      	 root /django/lin ; #注意是自己的目录
+        }
+启动django
+gunicorn -w 4 -b 127.0.0.1:8000  dmseng.wsgi
+此时已经可以通过ip地址直接访问
+让gunicorn在后台运行 添加日志
+gunicorn -w 4 -b 127.0.0.1:8000  -D --access-logfile=/tmp/gunicorn.log  dmseng.wsgi
+查看gunicorn 进程
+ps -aux |grep gunicorn
+django 收集静态页面
+修改django的settings.py
+添加STATIC_ROOT:
+STATIC_ROOT = os.path.join(BASE_DIR,'col_static')
+if not os.path.exists(STATIC_ROOT):
+    os.mkdir(STATIC_ROOT)
+注释STATICFILES_DIRS（否则这里配置的内容也会被收集）
+关闭DEBUG，设置ALLOWED_HOSTS
+DEBUG = False
+ALLOWED_HOSTS = ['*']
+开始收集
+python3 manage.py  collectstatic
+将col_static目录下的内容拷贝到static目录
+cp -r col_static/* static/  （当目录不为空时需要递归复制文件中的内容，需要加上-r选项）
+然后把之前注释的语句打开
+重启 reboot 然后运行nginx  django 服务
+即可通过ip/admin 访问后台页面
+让nginx开机自启动
+systemctl enable nginx
+让gunicorn开机自启动
+编写一个脚本
+# cd /django/
+# vim start_gunicorn.sh
+cd /django/lin
+/usr/local/bin/gunicorn -w 4 -b 127.0.0.1:8000 -D --access-logfile=/tmp/gunicorn.log dmseng.wsgi
+# vim /etc/rc.local   (让脚本开机自启动)
+bash /django/lin/start_gunicorn.sh
+增加权限
+#chmod +x /etc/rc.d/rc.local
+#ll /etc/rc.d/rc.local （查看权限）
+重启发现nginx，gunicorn自启动

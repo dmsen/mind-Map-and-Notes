@@ -1,0 +1,68 @@
+widows
+---------------------------------------------------------------------
+下载apache
+（官网下载
+https://www.apachehaus.com/cgi-bin/download.plx#APACHE24VC15
+）
+安装配置apache
+解压下载得到的zip包，然后放到你喜欢的目录下即可。
+配置环境变量
+将apache的bin路径加入到环境变量(PATH)中去；
+F:\PHP\Apache24\bin
+修改F:\PHP\Apache24\conf中的httpd.conf
+Define SRVROOT "F:\PHP\Apache24"  #这里需改成自己的安装目录
+ServerRoot "${SRVROOT}"
+ServerName localhost:80       #这里可改为自己想要的ip
+安装服务器
+打开cmd窗口（以管理员身份），输入以下命令:
+httpd -k install    回车
+httpd -k start     回车
+即可通过浏览器输入localhost直接访问
+拓展
+服务器的安装/卸载/停止/终止/重启的命令
+httpd -k install
+httpd -k uninstall
+httpd -k stop
+httpd -k shutdown
+httpd -k restart
+
+解决乱码设置：
+打开（去掉注释#）
+Include conf/extra/httpd-languages.conf
+cmd（管理员）中卸载、重装
+httpd -k  uninstall
+httpd -k  install
+末尾增加
+AddDefaultCharset GB2312
+<IfModule mod_negotiation.c>
+        LanguagePriority en da nl et fr de el it ja kr no pl pt pt-br ru ltz ca es sv tw
+</IfModule>
+=========================================================
+php安装
+官网下载  Safe的版本
+然后解压文件
+复制根目录中的php.ini-development，并改名为php.ini，并且修改如下
+更改extension_dir值为PHP的安装路径
+extension_dir = "F:/PHP/Php"
+On windows:
+extension_dir = "F:/PHP/Php/ext"
+
+打开以下设置的；或直接添加
+extension=curl
+extension=gd2
+extension=mbstring
+extension=mysqli
+extension=pdo_mysql
+在Apache的httpd.conf中的最后增加
+#配置php
+LoadModule php7_module "F:\PHP\Php\php7apache2_4.dll"
+<IfModule php7_module>
+	AddHandler application/x-httpd-php .php
+	AddType application/x-httpd-php .php .html
+	PHPIniDir "F:\PHP\Php"
+</IfModule>
+#PHPIniDir "F:\PHP\Php\"是告诉Apache，PHP的安装路径。
+然后在项目根目录下增加index.php和如下代码即可测试
+<?php
+	phpinfo();
+?>
